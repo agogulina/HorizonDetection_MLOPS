@@ -1,0 +1,9 @@
+albumentations
+numpy
+opencv-python
+pandas
+pyyaml
+scikit-learn
+tensorflow
+tensorboard
+

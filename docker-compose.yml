@@ -1,0 +1,66 @@
+# docker-compose.yml — LOCAL DEBUG ONLY
+# Включает: FastAPI сервис + Prometheus + Grafana
+
+services:
+
+  # ── FastAPI сервис ─────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: horizon-detection:dev
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./checkpoints:/app/checkpoints        # rw: переобучение сохраняет сюда новую модель
+      - ./configs:/app/configs:ro
+      - ./app:/app/app:ro
+      - ./src:/app/src:ro
+      - ./monitoring/drift/current:/app/monitoring/drift/current
+      - ./dataset:/app/dataset:ro  
+    environment:
+      CONFIG_PATH: configs/train.yaml
+      MODEL_PATH: checkpoints/model.keras
+      TF_CPP_MIN_LOG_LEVEL: "2"
+    command: >
+      uvicorn app.main:app
+        --host 0.0.0.0
+        --port 8000
+        --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ── Prometheus ─────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+
+  # ── Grafana ────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"   # пароль для входа
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+  grafana_data:

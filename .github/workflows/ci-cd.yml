@@ -1,0 +1,33 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize ]
+  workflow_dispatch:
+    inputs:
+      reason:
+        required: false
+        default: 'Manual check'
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests (Dataset Verification)
+        run: python utils/generate_dataset_slope.py
+      - name: Run tests (Train)
+        run: python main.py train --config configs/train.yaml

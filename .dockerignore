@@ -1,0 +1,22 @@
+# Keep the Docker build context small
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+.git
+.dvc
+.github
+.venv
+venv
+env
+*.egg-info
+dist
+build
+logs/
+dataset/
+*.mp4
+*.avi
+node_modules
+.DS_Store
+docker-compose.yml   # not needed inside the image
+k8s/

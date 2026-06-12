@@ -1,0 +1,130 @@
+{
+  "title": "Horizon Detection API",
+  "uid": "horizon-detection",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Запросов в секунду",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(horizon_requests_total[1m])",
+          "legendFormat": "{{endpoint}} {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Время обработки (p95), секунды",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(horizon_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95 {{endpoint}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Roll (крен), градусы",
+      "type": "gauge",
+      "gridPos": { "x": 0, "y": 8, "w": 6, "h": 8 },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": -90,
+          "max": 90,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 15 },
+              { "color": "red", "value": 30 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "expr": "horizon_roll_degrees", "legendFormat": "roll" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Pitch (тангаж), градусы",
+      "type": "gauge",
+      "gridPos": { "x": 6, "y": 8, "w": 6, "h": 8 },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": -90,
+          "max": 90,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 15 },
+              { "color": "red", "value": 30 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "expr": "horizon_pitch_degrees", "legendFormat": "pitch" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Горизонт обнаружен / не обнаружен",
+      "type": "piechart",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "horizon_detected_total",
+          "legendFormat": "detected={{detected}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Размер входных изображений (байты)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(horizon_image_size_bytes_bucket[5m]))",
+          "legendFormat": "медиана"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(horizon_image_size_bytes_bucket[5m]))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Ошибки (4xx / 5xx)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(horizon_requests_total{status!=\"200\"}[1m])",
+          "legendFormat": "{{endpoint}} {{status}}"
+        }
+      ]
+    }
+  ]
+}
