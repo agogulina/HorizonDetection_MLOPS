@@ -28,7 +28,7 @@ spec:
       containers:
         - name: api
           image: horizon-detection:v0.1   # replace tag on every release
-          imagePullPolicy: IfNotPresent   # use Never for pure Minikube
+          imagePullPolicy: Never   # use Never for pure Minikube
           ports:
             - containerPort: 8000
 
