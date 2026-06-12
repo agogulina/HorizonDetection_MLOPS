@@ -1,13 +1,4 @@
-# k8s/deployment.yaml
-# Minimal Kubernetes manifests for Minikube and production.
-#
-# Apply with:
-#   kubectl apply -f k8s/
-#
-# For Minikube — load local image first:
-#   minikube image load horizon-detection:v0.1
-#   (then set imagePullPolicy: Never in the container spec below)
-
+# k8s/deployment.yaml — Minikube
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -27,11 +18,10 @@ spec:
     spec:
       containers:
         - name: api
-          image: horizon-detection:v0.1   # replace tag on every release
-          imagePullPolicy: Never   # use Never for pure Minikube
+          image: horizon-detection:v0.1
+          imagePullPolicy: Never        # берём локальный образ из minikube
           ports:
             - containerPort: 8000
-
           env:
             - name: CONFIG_PATH
               value: /app/configs/train.yaml
@@ -39,8 +29,7 @@ spec:
               value: /app/checkpoints/model.keras
             - name: TF_CPP_MIN_LOG_LEVEL
               value: "2"
-
-          # Readiness: hold traffic until the model is fully loaded
+          # Модель теперь вшита в образ, внешний том не нужен
           readinessProbe:
             httpGet:
               path: /ready
@@ -48,15 +37,12 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 10
             failureThreshold: 6
-
-          # Liveness: restart the pod if it hangs
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
             initialDelaySeconds: 40
             periodSeconds: 20
-
           resources:
             requests:
               memory: "512Mi"
@@ -64,23 +50,6 @@ spec:
             limits:
               memory: "2Gi"
               cpu: "2000m"
-
-          volumeMounts:
-            - name: checkpoints
-              mountPath: /app/checkpoints
-              readOnly: true
-
-      volumes:
-        # Option A — hostPath for Minikube (model lives on the node)
-        - name: checkpoints
-          hostPath:
-            path: /mnt/checkpoints   # minikube mount maps this from your laptop
-            type: DirectoryOrCreate
-        # Option B — PVC for a real cluster (uncomment and remove hostPath above)
-        # - name: checkpoints
-        #   persistentVolumeClaim:
-        #     claimName: horizon-checkpoints-pvc
-
 ---
 apiVersion: v1
 kind: Service
@@ -93,4 +62,4 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 8000
-  type: ClusterIP   # change to NodePort or LoadBalancer to expose externally
+  type: ClusterIP
