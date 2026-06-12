@@ -13,7 +13,6 @@ env
 dist
 build
 logs/
-dataset/
 *.mp4
 *.avi
 node_modules

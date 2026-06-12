@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: horizon-detection:v0.1
+          image: horizon-detection:v0.2
           imagePullPolicy: Never
           ports:
             - containerPort: 8000
@@ -28,7 +28,7 @@ spec:
             - name: MODEL_PATH
               value: /app/checkpoints/model.keras
             - name: REFERENCE_DIR
-              value: /app/reference/images
+              value: /app/dataset/images
             - name: TF_CPP_MIN_LOG_LEVEL
               value: "2"
           readinessProbe:
