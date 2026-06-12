@@ -19,7 +19,7 @@ spec:
       containers:
         - name: api
           image: horizon-detection:v0.1
-          imagePullPolicy: Never        # берём локальный образ из minikube
+          imagePullPolicy: Never
           ports:
             - containerPort: 8000
           env:
@@ -27,9 +27,10 @@ spec:
               value: /app/configs/train.yaml
             - name: MODEL_PATH
               value: /app/checkpoints/model.keras
+            - name: REFERENCE_DIR
+              value: /app/reference/images
             - name: TF_CPP_MIN_LOG_LEVEL
               value: "2"
-          # Модель теперь вшита в образ, внешний том не нужен
           readinessProbe:
             httpGet:
               path: /ready
