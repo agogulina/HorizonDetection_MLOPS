@@ -134,17 +134,5 @@ kubectl port-forward svc/horizon-detection 8001:80     # отдельное ок
 # открыть http://localhost:8001
 ```
 
-## 11. README
 
-Этот файл.
 
----
-
-## Частые проблемы
-
-- **В UI «Failed to fetch»** — оборвался `kubectl port-forward`. Перезапустить
-  `kubectl port-forward svc/horizon-detection 8001:80` и обновить страницу.
-- **Под `0/1` после Sync** — TensorFlow стартует не сразу, подождать минуту.
-- **`ImagePullBackOff`** — образ не загружен: `minikube image load horizon-detection:v0.2`.
-- **После перезагрузки ничего нет** — minikube эфемерный: заново `minikube start`,
-  загрузить образ, поставить Argo CD, создать Application.
