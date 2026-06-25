@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: horizon-detection:v0.2
+          image: horizon-detection:v0.3
           imagePullPolicy: Never
           ports:
             - containerPort: 8000
