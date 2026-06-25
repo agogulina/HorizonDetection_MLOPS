@@ -9,7 +9,7 @@ data:
   test_size: 0.2
   num_classes: 2
 training:
-  epochs: 1
+  epochs: 20
   learning_rate: 0.0001
   n_encoder_decoder: 3
   initial_filters: 8

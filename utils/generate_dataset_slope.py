@@ -6,7 +6,6 @@ import numpy as np
 import math
 
 def get_border(mask_land, mask_sky):
-    """Get horizon border image from land and sky mask"""
     # Convert Colorspace to Grayscale
     mask_land = mask_land[:,:]
     mask_sky = mask_sky[:,:]
@@ -19,7 +18,6 @@ def get_border(mask_land, mask_sky):
     return border
 
 def get_horizon_line(border):
-    """Get horizon line equation from border image"""
     # Get border data in x,y format
     y = np.argmax(border, axis=0)
     x = np.arange(len(y))
@@ -39,7 +37,6 @@ def get_horizon_line(border):
     return m, c
 
 def get_roll_pitch(m, c, image_height, image_width):
-    """Get roll and pitch from horizon line equation"""
     # Convert slope (m) to roll degrees
     roll = math.degrees(math.atan(m))
 
@@ -49,7 +46,6 @@ def get_roll_pitch(m, c, image_height, image_width):
     return roll, pitch
 
 def draw_horizon_line(img, m, c):
-    """Draw horizon line on image"""
     image_height = img.shape[0]
     image_width = img.shape[1]
 

@@ -3,7 +3,7 @@
 
 services:
 
-  # ── FastAPI сервис ─────────────────────────────────────────────────────────
+  # FastAPI сервис
   api:
     build:
       context: .
@@ -12,7 +12,7 @@ services:
     ports:
       - "8001:8000"
     volumes:
-      - ./checkpoints:/app/checkpoints        # rw: переобучение сохраняет сюда новую модель
+      - ./checkpoints:/app/checkpoints # переобучение сохраняет сюда новую модель
       - ./configs:/app/configs:ro
       - ./app:/app/app:ro
       - ./src:/app/src:ro
@@ -34,7 +34,7 @@ services:
       retries: 3
       start_period: 30s
 
-  # ── Prometheus ─────────────────────────────────────────────────────────────
+  # Prometheus
   prometheus:
     image: prom/prometheus:v2.51.0
     ports:
@@ -46,7 +46,7 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=7d"
 
-  # ── Grafana ────────────────────────────────────────────────────────────────
+  # Grafana
   grafana:
     image: grafana/grafana:10.4.0
     ports:
