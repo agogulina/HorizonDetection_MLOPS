@@ -918,9 +918,11 @@ const experiments = [
 ];
 
 function renderExperiments() {
-  document.getElementById('experiments-list').innerHTML = experiments.map(e => `
+  // Сортируем по качеству: лучшая модель (макс. IoU) — сверху
+  const sorted = [...experiments].sort((a, b) => b.iou - a.iou);
+  document.getElementById('experiments-list').innerHTML = sorted.map((e, i) => `
     <div class="exp-card">
-      <div class="exp-rank ${e.rank === 1 ? 'gold' : ''}">#${e.rank}</div>
+      <div class="exp-rank ${i === 0 ? 'gold' : ''}">#${i + 1}</div>
       <div class="exp-info">
         <div class="exp-name">${e.name}</div>
         <div class="exp-params">${e.params}</div>
