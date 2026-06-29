@@ -1,5 +1,5 @@
 """
-Inference endpoints с Prometheus метриками.
+Inference endpoints с Prometheus метриками и сохранением предсказаний в БД.
 """
 
 import io
@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 
 from app.schemas import PredictMetaResponse
 from app.geometry import estimate_horizon
+from app import db
 from app.metrics import (
     REQUESTS_TOTAL,
     REQUEST_DURATION,
@@ -143,6 +144,18 @@ async def predict_meta(
     REQUEST_DURATION.labels(endpoint=endpoint).observe(duration)
     REQUESTS_TOTAL.labels(endpoint=endpoint, status="200").inc()
 
+    # ── Сохраняем предсказание в БД (отказоустойчиво) ────────────────────────
+    anomaly = roll_deg is not None and abs(roll_deg) > 30
+    db.insert_prediction(
+        filename=file.filename or "unknown",
+        horizon_detected=horizon_detected,
+        roll_deg=roll_deg,
+        pitch_deg=pitch_deg,
+        sky_ratio=round(sky_ratio, 4),
+        land_ratio=round(land_ratio, 4),
+        anomaly=anomaly,
+    )
+
     return PredictMetaResponse(
         filename=file.filename or "unknown",
         mask_shape=list(mask.shape),
@@ -152,3 +165,16 @@ async def predict_meta(
         sky_ratio=round(sky_ratio, 4),
         land_ratio=round(land_ratio, 4),
     )
+
+
+@router.get("/predictions", summary="Список последних предсказаний", tags=["inference"])
+def list_predictions(limit: int = 100):
+    """Вернуть последние предсказания из БД (для вкладки «Предсказания»)."""
+    return db.get_recent(limit)
+
+
+@router.delete("/predictions", summary="Очистить историю предсказаний", tags=["inference"])
+def clear_predictions():
+    """Удалить все записи предсказаний из БД."""
+    db.clear_all()
+    return {"status": "cleared"}

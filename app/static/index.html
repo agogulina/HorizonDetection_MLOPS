@@ -732,17 +732,9 @@ async function runPredict() {
       hv.textContent = '❌ Нет'; hv.className = 'card-value red';
     }
 
-    // Save to history
+    // Обновляем список предсказаний с сервера (данные пишутся в БД)
     const isAnomaly = meta.roll_deg !== null && Math.abs(meta.roll_deg) > 30;
-    predictions.unshift({
-      file: selectedFile.name,
-      detected: meta.horizon_detected,
-      roll: meta.roll_deg,
-      pitch: meta.pitch_deg,
-      sky: meta.sky_ratio,
-      anomaly: isAnomaly,
-      time: new Date().toLocaleTimeString('ru-RU'),
-    });
+    renderPredictions();
 
     if (isAnomaly) {
       addAlert('warning', '⚠️ Аномальный крен',
@@ -761,42 +753,62 @@ async function runPredict() {
   }
 }
 
-// ── Predictions table ──
-function renderPredictions() {
+// ── Predictions table (данные с сервера / из БД) ──
+async function renderPredictions() {
   const tbody = document.getElementById('predictions-table');
-  document.getElementById('total-requests').textContent = predictions.length;
+
+  let rows = [];
+  try {
+    const r = await fetch(API + '/api/v1/predictions?limit=100');
+    if (r.ok) rows = await r.json();
+    else throw new Error('bad status');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">
+      Не удалось загрузить данные с сервера (проверьте подключение к API)</td></tr>`;
+    return;
+  }
+
+  document.getElementById('total-requests').textContent = rows.length;
   document.getElementById('detected-count').textContent =
-    predictions.filter(p => p.detected).length;
+    rows.filter(p => p.horizon_detected).length;
   document.getElementById('error-count').textContent = errorCount;
   document.getElementById('anomaly-count').textContent =
-    predictions.filter(p => p.anomaly).length;
+    rows.filter(p => p.anomaly).length;
 
-  if (!predictions.length) {
+  if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">
       Нет данных — сделайте предсказание на странице Инференса</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = predictions.map((p, i) => `
+  tbody.innerHTML = rows.map((p, i) => {
+    const roll = (p.roll_deg !== null && p.roll_deg !== undefined) ? p.roll_deg.toFixed(2) + '°' : '—';
+    const pitch = (p.pitch_deg !== null && p.pitch_deg !== undefined) ? p.pitch_deg.toFixed(2) + '°' : '—';
+    const sky = (p.sky_ratio !== null && p.sky_ratio !== undefined) ? (p.sky_ratio * 100).toFixed(1) + '%' : '—';
+    const t = p.created_at ? new Date(p.created_at).toLocaleString('ru-RU') : '—';
+    return `
     <tr>
       <td style="color:var(--muted)">${i + 1}</td>
-      <td>${p.file}</td>
-      <td>${p.detected
+      <td>${p.filename || '—'}</td>
+      <td>${p.horizon_detected
         ? '<span class="badge badge-green">✅ Да</span>'
         : '<span class="badge badge-red">❌ Нет</span>'}</td>
-      <td>${p.roll !== null ? p.roll.toFixed(2) + '°' : '—'}</td>
-      <td>${p.pitch !== null ? p.pitch.toFixed(2) + '°' : '—'}</td>
-      <td>${(p.sky * 100).toFixed(1)}%</td>
+      <td>${roll}</td>
+      <td>${pitch}</td>
+      <td>${sky}</td>
       <td>${p.anomaly
         ? '<span class="badge badge-yellow">⚠️ Аномалия</span>'
         : '<span class="badge badge-green">✓ Норма</span>'}</td>
-      <td style="color:var(--muted)">${p.time}</td>
-    </tr>
-  `).join('');
+      <td style="color:var(--muted)">${t}</td>
+    </tr>`;
+  }).join('');
 }
 
-function clearHistory() {
-  predictions = []; errorCount = 0;
+async function clearHistory() {
+  errorCount = 0;
+  try {
+    await fetch(API + '/api/v1/predictions', { method: 'DELETE' });
+  } catch (e) { /* игнорируем — БД могла быть недоступна */ }
   renderPredictions();
   showToast('История очищена');
 }

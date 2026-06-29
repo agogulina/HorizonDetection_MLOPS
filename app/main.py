@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from app.routers import predict, drift, retrain
+from app import db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ def load_config() -> dict:
 async def lifespan(app: FastAPI):
     app.state.cfg = load_config()
     app.state.model = load_model_on_startup()
+    db.init_db()          # создаём таблицу предсказаний, если есть БД
     yield
 
 

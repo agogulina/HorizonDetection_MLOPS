@@ -4,6 +4,7 @@
 Запускает обучение U-Net в фоновом потоке, отдаёт прогресс по эпохам,
 по завершении атомарно подменяет рабочую модель в app.state.model,
 чтобы инференс сразу использовал новые веса — без перезапуска сервиса.
+Каждое переобучение логируется в MLflow (параметры, метрики, модель).
 
 Эндпоинты:
     POST /api/v1/retrain         — запустить (тело: {"epochs": N})
@@ -22,25 +23,31 @@ from typing import Optional
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel, Field
 
+# --- MLflow: трекинг экспериментов (необязательная зависимость) --------------
+try:
+    import mlflow
+    _MLFLOW_OK = True
+except Exception:
+    _MLFLOW_OK = False
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ── Общее состояние процесса обучения ────────────────────────────────────────
-# Один лок гарантирует, что одновременно не запустятся два обучения.
 _train_lock = threading.Lock()
 
 _status = {
-    "state": "idle",          # idle | running | done | error
+    "state": "idle",
     "epoch": 0,
     "total_epochs": 0,
     "loss": None,
     "val_loss": None,
-    "metric": None,           # последнее значение основной метрики (IoU)
+    "metric": None,
     "message": "Готово к запуску",
     "started_at": None,
     "finished_at": None,
 }
-_status_guard = threading.Lock()   # защищает _status от гонок при чтении/записи
+_status_guard = threading.Lock()
 
 
 def _set_status(**kwargs):
@@ -82,7 +89,6 @@ def _make_progress_callback(total_epochs: int):
 
         def on_epoch_end(self, epoch, logs=None):
             logs = logs or {}
-            # Имя метрики IoU в этом проекте — max_mean_io_u (см. callbacks.py)
             metric = None
             for k, v in logs.items():
                 if "io_u" in k and not k.startswith("val_"):
@@ -108,6 +114,7 @@ def _run_training(app, epochs: int, model_path: str):
     )
     from src.models.unet import create_unet_model
 
+    mlflow_run = None
     try:
         _set_status(
             state="running",
@@ -121,9 +128,29 @@ def _run_training(app, epochs: int, model_path: str):
             finished_at=None,
         )
 
-        # Берём конфиг приложения и переопределяем число эпох из запроса.
         cfg = copy.deepcopy(app.state.cfg)
         cfg["training"]["epochs"] = epochs
+
+        # ── старт записи в MLflow ────────────────────────────────────────────
+        if _MLFLOW_OK:
+            try:
+                uri = os.getenv("MLFLOW_TRACKING_URI")
+                if uri:
+                    mlflow.set_tracking_uri(uri)
+                mlflow.set_experiment("horizon-detection")
+                mlflow_run = mlflow.start_run(run_name=f"retrain-{epochs}ep")
+                mlflow.log_params({
+                    "epochs": epochs,
+                    "learning_rate": cfg["training"]["learning_rate"],
+                    "n_encoder_decoder": cfg["training"]["n_encoder_decoder"],
+                    "initial_filters": cfg["training"]["initial_filters"],
+                    "batch_size": cfg["data"]["batch_size"],
+                    "image_size": str(cfg["data"]["image_size"]),
+                    "source": "ui-retrain",
+                })
+            except Exception as e:
+                logger.warning("MLflow init failed: %s", e)
+                mlflow_run = None
 
         paths = cfg["paths"]
         dataset_dir = Path(paths["dataset"])
@@ -157,16 +184,10 @@ def _run_training(app, epochs: int, model_path: str):
             verbose=0,
         )
 
-        # ── Атомарное сохранение и горячая подмена ──────────────────────────
         _set_status(message="Сохранение новой модели…")
         model_path = Path(model_path)
         model_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Сначала пишем во временный файл, затем заменяем — чтобы при сбое
-        # не остаться без рабочего чекпойнта.
-        # ВАЖНО: Keras определяет формат по расширению, поэтому временный и
-        # резервный файлы тоже должны оканчиваться на .keras, иначе model.save
-        # падает с "Invalid filepath extension for saving".
         tmp_path = model_path.parent / (model_path.stem + ".tmp.keras")
         backup_path = model_path.parent / (model_path.stem + ".bak.keras")
         model.save(str(tmp_path))
@@ -175,7 +196,6 @@ def _run_training(app, epochs: int, model_path: str):
             shutil.copy2(str(model_path), str(backup_path))
         os.replace(str(tmp_path), str(model_path))
 
-        # Горячая подмена модели в памяти сервиса — инференс сразу новый.
         app.state.model = model
 
         metric = get_status().get("metric")
@@ -186,7 +206,19 @@ def _run_training(app, epochs: int, model_path: str):
         )
         logger.info("Retrain finished. New model live. IoU=%s", metric)
 
-    except Exception as e:  # noqa: BLE001 — хотим поймать любую ошибку обучения
+        # ── запись метрик и модели в MLflow ──────────────────────────────────
+        if _MLFLOW_OK and mlflow_run is not None:
+            try:
+                st = get_status()
+                for key in ("loss", "val_loss", "metric"):
+                    if st.get(key) is not None:
+                        mlflow.log_metric(key, float(st[key]))
+                mlflow.log_artifact(str(model_path), artifact_path="model")
+                logger.info("[MLflow] retrain run logged")
+            except Exception as e:
+                logger.warning("MLflow logging failed: %s", e)
+
+    except Exception as e:  # noqa: BLE001
         logger.exception("Retrain failed")
         _set_status(
             state="error",
@@ -194,18 +226,19 @@ def _run_training(app, epochs: int, model_path: str):
             finished_at=datetime.datetime.now().isoformat(timespec="seconds"),
         )
     finally:
-        # Освобождаем лок в любом случае.
+        # Закрываем запись MLflow, если открыта.
+        if _MLFLOW_OK and mlflow_run is not None:
+            try:
+                mlflow.end_run()
+            except Exception:
+                pass
         if _train_lock.locked():
             _train_lock.release()
 
 
 @router.post("/retrain", summary="Запустить переобучение", tags=["training"])
 def start_retrain(request: Request, body: RetrainRequest):
-    """
-    Запускает обучение в фоне и сразу возвращает ответ.
-    Прогресс отслеживается через GET /retrain/status.
-    """
-    # Пытаемся захватить лок без блокировки: если занят — обучение уже идёт.
+    """Запускает обучение в фоне и сразу возвращает ответ."""
     if not _train_lock.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Обучение уже выполняется.")
 
