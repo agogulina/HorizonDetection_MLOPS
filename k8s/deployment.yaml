@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: horizon-detection:v0.5
+          image: horizon-detection:v0.6
           imagePullPolicy: Never
           ports:
             - containerPort: 8000
@@ -31,6 +31,8 @@ spec:
               value: /app/dataset/images
             - name: DATABASE_URL
               value: "postgresql://horizon:horizon_pass@postgres:5432/horizon"
+            - name: MLFLOW_TRACKING_URI
+              value: "http://mlflow:5000"
             - name: TF_CPP_MIN_LOG_LEVEL
               value: "2"
           readinessProbe:
