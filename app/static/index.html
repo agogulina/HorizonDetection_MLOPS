@@ -454,7 +454,6 @@
       <table>
         <thead>
           <tr>
-            <th>#</th>
             <th>Файл</th>
             <th>Горизонт</th>
             <th>Roll</th>
@@ -465,7 +464,7 @@
           </tr>
         </thead>
         <tbody id="predictions-table">
-          <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">
+          <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">
             Нет данных — сделайте предсказание на странице Инференса
           </td></tr>
         </tbody>
@@ -763,7 +762,7 @@ async function renderPredictions() {
     if (r.ok) rows = await r.json();
     else throw new Error('bad status');
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">
       Не удалось загрузить данные с сервера (проверьте подключение к API)</td></tr>`;
     return;
   }
@@ -776,7 +775,7 @@ async function renderPredictions() {
     rows.filter(p => p.anomaly).length;
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">
       Нет данных — сделайте предсказание на странице Инференса</td></tr>`;
     return;
   }
@@ -788,7 +787,6 @@ async function renderPredictions() {
     const t = p.created_at ? new Date(p.created_at).toLocaleString('ru-RU') : '—';
     return `
     <tr>
-      <td style="color:var(--muted)">${i + 1}</td>
       <td>${p.filename || '—'}</td>
       <td>${p.horizon_detected
         ? '<span class="badge badge-green">✅ Да</span>'
@@ -875,13 +873,13 @@ function renderDrift() {
       </div>
       <div class="drift-bar-wrap">
         <div class="drift-bar-label">
-          <span>Эталон (${refCount} фото): ${refVal.toFixed(1)}</span><span>${refPct}%</span>
+          <span>Эталон: ${refVal.toFixed(1)}</span><span>${refPct}%</span>
         </div>
         <div class="drift-bar-bg"><div class="drift-bar-fill" style="width:${refPct}%;background:var(--accent)"></div></div>
       </div>
       <div class="drift-bar-wrap">
         <div class="drift-bar-label">
-          <span>Текущее (${curCount} фото): ${noCur ? '—' : curVal.toFixed(1)}</span>
+          <span>Текущее: ${noCur ? '—' : curVal.toFixed(1)}</span>
           <span>${noCur ? '—' : curPct + '%'}</span>
         </div>
         <div class="drift-bar-bg"><div class="drift-bar-fill" style="width:${noCur ? 0 : curPct}%;background:${isDrift ? 'var(--yellow)' : 'var(--green)'}"></div></div>
@@ -914,9 +912,9 @@ function openDriftReport() {
 
 // ── Experiments ──
 const experiments = [
-  { rank: 1, name: 'U-Net v3 — финальная', params: 'filters=8, depth=3, lr=0.0001, epochs=50', iou: 0.847, loss: 0.142, date: '2026-05-18' },
-  { rank: 2, name: 'U-Net v2 — расширенный датасет', params: 'filters=16, depth=3, lr=0.0001, epochs=30', iou: 0.821, loss: 0.178, date: '2026-05-15' },
-  { rank: 3, name: 'U-Net v1 — базовая', params: 'filters=8, depth=2, lr=0.001, epochs=20', iou: 0.763, loss: 0.231, date: '2026-05-10' },
+  { rank: 1, name: 'U-Net v3 — финальная', params: 'epochs=50', iou: 0.847, loss: 0.142, date: '2026-05-18' },
+  { rank: 2, name: 'U-Net v2 — расширенный датасет', params: 'epochs=30', iou: 0.821, loss: 0.178, date: '2026-05-15' },
+  { rank: 3, name: 'U-Net v1 — базовая', params: 'epochs=20', iou: 0.763, loss: 0.231, date: '2026-05-10' },
 ];
 
 function renderExperiments() {
@@ -938,7 +936,6 @@ function renderExperiments() {
           <div class="exp-metric-label">Loss</div>
         </div>
       </div>
-      ${e.rank === 1 ? '<span class="badge badge-green">🏆 Активная</span>' : ''}
     </div>
   `).join('');
 }
